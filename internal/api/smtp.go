@@ -8,7 +8,7 @@ import (
 	"net/smtp"
 )
 
-func HandlerSmtpAuth(app *API) HandlerFunc {
+func HandlerSmtpAuth(app *API) fiber.Handler {
 
 	type request struct {
 		User     string `json:"user"`
@@ -36,7 +36,7 @@ func HandlerSmtpAuth(app *API) HandlerFunc {
 	}
 }
 
-func HandlerSmtpSend(app *API) HandlerFunc {
+func HandlerSmtpSend(app *API) fiber.Handler {
 
 	type request struct {
 		From    string   `json:"from"`

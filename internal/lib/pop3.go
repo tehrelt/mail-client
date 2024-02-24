@@ -45,6 +45,13 @@ func NewPop(cfg *config.Pop3Config) *Pop3 {
 	}
 }
 
+func (p *Pop3) connectionAlive() error {
+	if p.connection == nil {
+		return ErrPop3Disconnected
+	}
+	return nil
+}
+
 func (p *Pop3) Auth(user, pass string) error {
 	conn, err := p.client.NewConn()
 	if err != nil {
@@ -62,8 +69,8 @@ func (p *Pop3) Auth(user, pass string) error {
 }
 
 func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
-	if p.connection == nil {
-		return nil, ErrPop3Disconnected
+	if err := p.connectionAlive(); err != nil {
+		return nil, err
 	}
 
 	msgs, err := p.connection.List(0)
@@ -74,9 +81,16 @@ func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
 	return msgs, nil
 }
 
+func (p *Pop3) Stat() (int, int, error) {
+	if err := p.connectionAlive(); err != nil {
+		return 0, 0, err
+	}
+	return p.connection.Stat()
+}
+
 func (p *Pop3) Retrieve(id int) (*Mail, error) {
-	if p.connection == nil {
-		return nil, ErrPop3Disconnected
+	if err := p.connectionAlive(); err != nil {
+		return nil, err
 	}
 
 	message, err := p.connection.Retr(id)

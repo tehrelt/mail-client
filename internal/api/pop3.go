@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func HandlerPopAuth(app *API) HandlerFunc {
+func HandlerPopAuth(app *API) fiber.Handler {
 
 	type request struct {
 		User     string `json:"user"`
@@ -40,7 +40,7 @@ func HandlerPopAuth(app *API) HandlerFunc {
 	}
 }
 
-func HandlerPopList(app *API) HandlerFunc {
+func HandlerPopList(app *API) fiber.Handler {
 
 	type response struct {
 		Messages []*lib.Mail `json:"messages"`
@@ -75,7 +75,7 @@ func HandlerPopList(app *API) HandlerFunc {
 	}
 }
 
-func HandlerPopRetrieve(app *API) HandlerFunc {
+func HandlerPopRetrieve(app *API) fiber.Handler {
 
 	type response struct {
 		Message *lib.Mail `json:"message"`
@@ -108,6 +108,37 @@ func HandlerPopRetrieve(app *API) HandlerFunc {
 		}
 
 		res.Message = msg
+
+		return respond(ctx, res)
+	}
+}
+
+func HandlerPopStat(app *API) fiber.Handler {
+
+	type response struct {
+		Count int `json:"count"`
+		Size  int `json:"size"`
+	}
+
+	return func(ctx *fiber.Ctx) error {
+
+		var res response
+
+		count, size, err := app.pop.Stat()
+		if err != nil {
+			if errors.Is(err, lib.ErrPop3Disconnected) {
+				return forbidden(err.Error())
+			}
+
+			if strings.Contains(err.Error(), "There's no message") {
+				return bad("unknown message")
+			}
+
+			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+		}
+
+		res.Count = count
+		res.Size = size
 
 		return respond(ctx, res)
 	}

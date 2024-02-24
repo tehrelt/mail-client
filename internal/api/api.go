@@ -9,8 +9,6 @@ import (
 	"net/smtp"
 )
 
-type HandlerFunc func(ctx *fiber.Ctx) error
-
 type API struct {
 	app      *fiber.App
 	smtp     *smtp.Client
@@ -62,4 +60,5 @@ func (api *API) configure() {
 	pop3.Post("/auth", HandlerPopAuth(api))
 	pop3.Get("/list", HandlerPopList(api))
 	pop3.Get("/list/:id", HandlerPopRetrieve(api))
+	pop3.Get("/stat", HandlerPopStat(api))
 }
