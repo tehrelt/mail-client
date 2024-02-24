@@ -3,13 +3,12 @@ package api
 import (
 	"fmt"
 	"github.com/bytbox/go-pop3"
-	"github.com/gofiber/fiber/v3"
-	"mail-client/internal/api/handlers"
+	"github.com/gofiber/fiber/v2"
 	"mail-client/internal/config"
 	"net/smtp"
 )
 
-type HandlerFunc func(ctx fiber.Ctx) error
+type HandlerFunc func(ctx *fiber.Ctx) error
 
 type API struct {
 	app  *fiber.App
@@ -45,19 +44,14 @@ func Start(cfg *config.AppConfig) error {
 }
 
 func (api *API) configure() {
-	api.app.Get("/ping", func(ctx fiber.Ctx) error {
+	api.app.Get("/ping", func(ctx *fiber.Ctx) error {
 		return ctx.JSON(&fiber.Map{
 			"message": "pong",
 		})
 	})
 
 	smtp := api.app.Group("/smtp")
-	smtp.Post("/auth", handlers.HandlerSmtpAuth(api, api.smtp))
+	smtp.Post("/auth", HandlerSmtpAuth(api, api.smtp))
 
-	pop3 := api.app.Group("/pop3")
-	pop3.Get("/", func(ctx fiber.Ctx) error {
-		return ctx.JSON(&fiber.Map{
-			"message": "pop3 root path",
-		})
-	})
+	//pop3 := api.app.Group("/pop3")
 }

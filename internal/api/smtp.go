@@ -1,19 +1,18 @@
-package handlers
+package api
 
 import (
-	"github.com/gofiber/fiber/v3"
-	"mail-client/internal/api"
+	"github.com/gofiber/fiber/v2"
 	"net/smtp"
 )
 
-func HandlerSmtpAuth(app *api.API, client *smtp.Client) api.HandlerFunc {
+func HandlerSmtpAuth(app *API, client *smtp.Client) HandlerFunc {
 
 	type request struct {
 		User     string `json:"user"`
 		Password string `json:"password"`
 	}
 
-	return func(ctx fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
 
 		var req request
 
