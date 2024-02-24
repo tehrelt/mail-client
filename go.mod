@@ -3,7 +3,6 @@ module mail-client
 go 1.22
 
 require (
-	github.com/bytbox/go-pop3 v0.0.0-20120201222208-3046caf0763e
 	github.com/gofiber/fiber/v2 v2.52.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 )
@@ -11,9 +10,12 @@ require (
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/emersion/go-message v0.18.0 // indirect
+	github.com/emersion/go-textwrapper v0.0.0-20200911093747-65d896831594 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/knadh/go-pop3 v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
