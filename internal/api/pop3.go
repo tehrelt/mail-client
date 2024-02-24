@@ -1,9 +1,12 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"mail-client/internal/lib"
+	"strconv"
+	"strings"
 )
 
 func HandlerPopAuth(app *API) HandlerFunc {
@@ -53,12 +56,18 @@ func HandlerPopList(app *API) HandlerFunc {
 		}
 
 		for _, listedMessage := range listedMessages {
-			msg, err := app.pop.Retrieve(listedMessage)
+			msg, err := app.pop.Retrieve(listedMessage.ID)
 			if err != nil {
 				return internal(fmt.Sprintf("pop.Retr: %s", err))
 			}
 
 			msg.Meta = listedMessage
+
+			if len(msg.Body) > 128 {
+				msg.Body = msg.Body[:128]
+				msg.Body += "..."
+			}
+
 			res.Messages = append(res.Messages, msg)
 		}
 
@@ -66,7 +75,7 @@ func HandlerPopList(app *API) HandlerFunc {
 	}
 }
 
-func HandlerPopListOne(app *API) HandlerFunc {
+func HandlerPopRetrieve(app *API) HandlerFunc {
 
 	type response struct {
 		Message *lib.Mail `json:"message"`
@@ -75,6 +84,30 @@ func HandlerPopListOne(app *API) HandlerFunc {
 	return func(ctx *fiber.Ctx) error {
 
 		var res response
+
+		idParam := ctx.Params("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			if errors.Is(err, strconv.ErrSyntax) {
+				return bad(fmt.Sprintf("mail id must be positive integer"))
+			}
+			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+		}
+
+		msg, err := app.pop.Retrieve(id)
+		if err != nil {
+			if errors.Is(err, lib.ErrPop3Disconnected) {
+				return forbidden(err.Error())
+			}
+
+			if strings.Contains(err.Error(), "There's no message") {
+				return bad("unknown message")
+			}
+
+			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+		}
+
+		res.Message = msg
 
 		return respond(ctx, res)
 	}

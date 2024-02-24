@@ -17,6 +17,10 @@ import (
 //	return strings.Contains(message, pop3.ERR)
 //}
 
+var (
+	ErrPop3Disconnected = errors.New("disconnected")
+)
+
 type Pop3 struct {
 	client     *pop3.Client
 	connection *pop3.Conn
@@ -59,7 +63,7 @@ func (p *Pop3) Auth(user, pass string) error {
 
 func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
 	if p.connection == nil {
-		return nil, errors.New("disconnected")
+		return nil, ErrPop3Disconnected
 	}
 
 	msgs, err := p.connection.List(0)
@@ -70,12 +74,12 @@ func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
 	return msgs, nil
 }
 
-func (p *Pop3) Retrieve(messageInfo pop3.MessageID) (*Mail, error) {
+func (p *Pop3) Retrieve(id int) (*Mail, error) {
 	if p.connection == nil {
-		return nil, errors.New("disconnected")
+		return nil, ErrPop3Disconnected
 	}
 
-	message, err := p.connection.Retr(messageInfo.ID)
+	message, err := p.connection.Retr(id)
 	if err != nil {
 		return nil, err
 	}

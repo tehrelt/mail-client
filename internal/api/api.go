@@ -61,4 +61,5 @@ func (api *API) configure() {
 	pop3 := api.app.Group("/pop3")
 	pop3.Post("/auth", HandlerPopAuth(api))
 	pop3.Get("/list", HandlerPopList(api))
+	pop3.Get("/list/:id", HandlerPopRetrieve(api))
 }
