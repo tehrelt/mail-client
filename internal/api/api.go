@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bytbox/go-pop3"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"mail-client/internal/config"
 	"net/smtp"
 )
@@ -38,6 +39,7 @@ func Start(cfg *config.AppConfig) error {
 		Cfg:  cfg,
 	}
 
+	api.app.Use(logger.New())
 	api.configure()
 
 	return api.app.Listen(fmt.Sprintf(":%d", cfg.Port))

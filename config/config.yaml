@@ -3,5 +3,5 @@ smtp:
   host: smtp.rambler.ru
   port: 25
 pop3:
-  host: pop3.rambler.ru
+  host: pop.rambler.ru
   port: 110
