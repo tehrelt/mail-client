@@ -39,23 +39,13 @@ func HandlerPopAuth(app *API) HandlerFunc {
 
 func HandlerPopList(app *API) HandlerFunc {
 
-	type request struct {
-		User     string `json:"user"`
-		Password string `json:"password"`
-	}
-
 	type response struct {
 		Messages []*lib.Mail `json:"messages"`
 	}
 
 	return func(ctx *fiber.Ctx) error {
 
-		var req request
 		var res response
-
-		if err := ctx.BodyParser(&req); err != nil {
-			return internal("Internal server error: cannot parse json")
-		}
 
 		listedMessages, err := app.pop.ListAll()
 		if err != nil {
@@ -68,8 +58,23 @@ func HandlerPopList(app *API) HandlerFunc {
 				return internal(fmt.Sprintf("pop.Retr: %s", err))
 			}
 
+			msg.Meta = listedMessage
 			res.Messages = append(res.Messages, msg)
 		}
+
+		return respond(ctx, res)
+	}
+}
+
+func HandlerPopListOne(app *API) HandlerFunc {
+
+	type response struct {
+		Message *lib.Mail `json:"message"`
+	}
+
+	return func(ctx *fiber.Ctx) error {
+
+		var res response
 
 		return respond(ctx, res)
 	}

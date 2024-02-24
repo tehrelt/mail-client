@@ -23,11 +23,12 @@ type Pop3 struct {
 }
 
 type Mail struct {
-	From    string    `json:"from"`
-	To      string    `json:"to"`
-	Subject string    `json:"subject"`
-	Body    string    `json:"body"`
-	Date    time.Time `json:"date"`
+	From    string         `json:"from"`
+	To      string         `json:"to"`
+	Subject string         `json:"subject"`
+	Body    string         `json:"body"`
+	Date    time.Time      `json:"date"`
+	Meta    pop3.MessageID `json:"meta"`
 }
 
 func NewPop(cfg *config.Pop3Config) *Pop3 {
@@ -109,21 +110,11 @@ func (p *Pop3) Retrieve(messageInfo pop3.MessageID) (*Mail, error) {
 		subject = append(subject, string(su))
 	}
 
-	//log.Debug(message.Header.Map())
-
 	d := message.Header.Get("Date")
 	t, err := time.Parse("02 Jan 2006 15:04:05 -0700", strings.Split(d, ", ")[1])
 	if err != nil {
 		return nil, err
 	}
-
-	//encoded := strings.Split(string(body), "\r\n")
-	//
-	//m := encoded[5]
-	//_, err = base64.StdEncoding.DecodeString(m)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
 	encodedParts := strings.Split(elems, "\r\n")[5:]
