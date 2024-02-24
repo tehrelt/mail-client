@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/knadh/go-pop3"
+	"io"
 	"mail-client/internal/config"
 	"strings"
+	"time"
 )
 
 //
@@ -21,10 +23,11 @@ type Pop3 struct {
 }
 
 type Mail struct {
-	From    string `json:"from"`
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	From    string    `json:"from"`
+	To      string    `json:"to"`
+	Subject string    `json:"subject"`
+	Body    string    `json:"body"`
+	Date    time.Time `json:"date"`
 }
 
 func NewPop(cfg *config.Pop3Config) *Pop3 {
@@ -76,10 +79,11 @@ func (p *Pop3) Retrieve(messageInfo pop3.MessageID) (*Mail, error) {
 		return nil, err
 	}
 
-	body := make([]byte, messageInfo.Size)
-	_, err = message.Body.Read(body)
+	reader := message.Body
+	buf := new(strings.Builder)
+	_, err = io.Copy(buf, reader)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
 	f := message.Header.Get("from")
@@ -90,31 +94,52 @@ func (p *Pop3) Retrieve(messageInfo pop3.MessageID) (*Mail, error) {
 
 	sender := fmt.Sprintf("%s %s", string(from), strings.Split(f, " ")[1])
 
-	//content, err := base64.StdEncoding.DecodeString(string(body))
-	//if err != nil {
-	//	log.Fatal("error:", err)
-	//}
 	subj := message.Header.Get("subject")
-	subject, err := base64.StdEncoding.DecodeString(strings.Split(strings.Split(subj, "UTF-8?B?")[1], "?=")[0])
+
+	subjj := strings.Split(subj, "UTF-8?B?")
+
+	var subject []string
+
+	for i := 1; i < len(subjj); i++ {
+		su, err := base64.StdEncoding.DecodeString(strings.Split(subjj[i], "?=")[0])
+		if err != nil {
+			log.Fatal("error:", err)
+		}
+
+		subject = append(subject, string(su))
+	}
+
+	//log.Debug(message.Header.Map())
+
+	d := message.Header.Get("Date")
+	t, err := time.Parse("02 Jan 2006 15:04:05 -0700", strings.Split(d, ", ")[1])
 	if err != nil {
-		log.Fatal("error:", err)
+		return nil, err
 	}
 
-	encoded := strings.Split(string(body), "\r\n")
-	for i, m := range encoded {
-		log.Debugf("%d\t-\t%s", i, m)
-	}
+	//encoded := strings.Split(string(body), "\r\n")
+	//
+	//m := encoded[5]
+	//_, err = base64.StdEncoding.DecodeString(m)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	m := encoded[5]
+	elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
+	encodedParts := strings.Split(elems, "\r\n")[5:]
 
-	content, err := base64.StdEncoding.DecodeString(m)
+	encoded := strings.Join(encodedParts, "")
+
+	content, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		log.Fatal("error:", err)
+		return nil, err
 	}
+
 	return &Mail{
 		From:    sender,
 		To:      message.Header.Get("to"),
-		Subject: string(subject),
+		Subject: strings.Join(subject, ""),
 		Body:    string(content),
+		Date:    t,
 	}, nil
 }
