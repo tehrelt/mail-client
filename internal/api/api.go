@@ -52,7 +52,7 @@ func (api *API) configure() {
 	})
 
 	smtp := api.app.Group("/smtp")
-	smtp.Post("/auth", handlers.HandlerSmtpAuth(api))
+	smtp.Post("/auth", handlers.HandlerSmtpAuth(api, api.smtp))
 
 	pop3 := api.app.Group("/pop3")
 	pop3.Get("/", func(ctx fiber.Ctx) error {
