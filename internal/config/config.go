@@ -13,6 +13,7 @@ type Pop3Config struct {
 }
 
 type AppConfig struct {
+	Port int        `yaml:"port"`
 	Smtp SmtpConfig `yaml:"smtp"`
 	Pop3 Pop3Config `yaml:"pop3"`
 }

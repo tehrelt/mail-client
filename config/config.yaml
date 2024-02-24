@@ -1,3 +1,4 @@
+port: 6000
 smtp:
   host: smtp.rambler.ru
   port: 25

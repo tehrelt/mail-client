@@ -40,7 +40,7 @@ func Start(cfg *config.AppConfig) error {
 
 	api.configure()
 
-	return api.app.Listen(":7000")
+	return api.app.Listen(fmt.Sprintf(":%d", cfg.Port))
 }
 
 func (api *API) configure() {
