@@ -69,6 +69,9 @@ func (s *Smtp) SendMessage(message *dto.Message) error {
 	m.SetHeader("To", strings.Join(message.To, ","))
 	m.SetHeader("Subject", message.Subject)
 	m.AddAlternative("text/plain", message.Body)
+	for _, file := range message.Attachments {
+		m.Attach(file)
+	}
 
 	if err := s.DialAndSend(m); err != nil {
 		return err
