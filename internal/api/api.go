@@ -6,14 +6,13 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"mail-client/internal/config"
 	"mail-client/internal/lib"
-	"net/smtp"
 )
 
 type API struct {
-	app      *fiber.App
-	smtp     *smtp.Client
-	smtpAuth smtp.Auth
-	pop      *lib.Pop3
+	app *fiber.App
+
+	smtp *lib.Smtp
+	pop  *lib.Pop3
 
 	config *config.AppConfig
 }
@@ -21,21 +20,13 @@ type API struct {
 func Start(cfg *config.AppConfig) error {
 	app := fiber.New()
 
-	smtp, err := smtp.Dial(fmt.Sprintf("%s:%d", cfg.Smtp.Host, cfg.Smtp.Port))
-	if err != nil {
-		return err
-	}
-
 	pop3 := lib.NewPop(cfg.Pop3)
+	smtp := lib.NewSmtp(cfg.Smtp)
 
 	api := &API{
-		app: app,
-
-		smtp:     smtp,
-		smtpAuth: nil,
-
-		pop: pop3,
-
+		app:    app,
+		smtp:   smtp,
+		pop:    pop3,
 		config: cfg,
 	}
 

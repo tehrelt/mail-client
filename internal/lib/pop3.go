@@ -12,13 +12,9 @@ import (
 	"time"
 )
 
-//
-//func IsPop3Error(message string) bool {
-//	return strings.Contains(message, pop3.ERR)
-//}
-
 var (
 	ErrPop3Disconnected = errors.New("disconnected")
+	ErrSmtpForbidden    = errors.New("forbidden")
 )
 
 type Pop3 struct {
