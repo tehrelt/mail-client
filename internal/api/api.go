@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"mail-client/internal/config"
 	"mail-client/internal/lib"
@@ -30,7 +31,12 @@ func Start(cfg *config.AppConfig) error {
 		config: cfg,
 	}
 
+	api.app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*",
+		AllowCredentials: false,
+	}))
 	api.app.Use(logger.New())
+
 	api.configure()
 
 	return api.app.Listen(fmt.Sprintf(":%d", cfg.Port))
