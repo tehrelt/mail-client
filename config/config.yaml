@@ -1,0 +1,7 @@
+port: 7000
+smtp:
+  host: smtp.rambler.ru
+  port: 25
+pop3:
+  host: pop.rambler.ru
+  port: 110
