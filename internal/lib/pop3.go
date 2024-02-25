@@ -8,6 +8,7 @@ import (
 	"github.com/knadh/go-pop3"
 	"io"
 	"mail-client/internal/config"
+	"mail-client/internal/dto"
 	"strings"
 	"time"
 )
@@ -18,8 +19,7 @@ var (
 )
 
 type Pop3 struct {
-	client     *pop3.Client
-	connection *pop3.Conn
+	*pop3.Conn
 }
 
 type Mail struct {
@@ -31,45 +31,34 @@ type Mail struct {
 	Meta    pop3.MessageID `json:"meta"`
 }
 
-func NewPop(cfg *config.Pop3Config) *Pop3 {
-	return &Pop3{
-		client: pop3.New(pop3.Opt{
-			Host:       cfg.Host,
-			Port:       cfg.Port,
-			TLSEnabled: false,
-		}),
-	}
+func NewPop(connection *pop3.Conn) *Pop3 {
+	return &Pop3{connection}
 }
 
-func (p *Pop3) connectionAlive() error {
-	if p.connection == nil {
-		return ErrPop3Disconnected
-	}
-	return nil
-}
+func Pop3Auth(config *config.Pop3Config, user *dto.User) (*Pop3, error) {
+	client := pop3.New(pop3.Opt{
+		Host:          config.Host,
+		Port:          config.Port,
+		TLSEnabled:    false,
+		TLSSkipVerify: false,
+	})
 
-func (p *Pop3) Auth(user, pass string) error {
-	conn, err := p.client.NewConn()
+	conn, err := client.NewConn()
 	if err != nil {
-		return err
-	}
-
-	if err := conn.Auth(user, pass); err != nil {
-		conn.Quit()
-		return err
-	}
-
-	p.connection = conn
-
-	return nil
-}
-
-func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
-	if err := p.connectionAlive(); err != nil {
 		return nil, err
 	}
 
-	msgs, err := p.connection.List(0)
+	if err := conn.Auth(user.User, user.Pass); err != nil {
+		conn.Quit()
+		return nil, err
+	}
+
+	return NewPop(conn), nil
+}
+
+func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
+
+	msgs, err := p.List(0)
 	if err != nil {
 		return nil, err
 	}
@@ -77,19 +66,8 @@ func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
 	return msgs, nil
 }
 
-func (p *Pop3) Stat() (int, int, error) {
-	if err := p.connectionAlive(); err != nil {
-		return 0, 0, err
-	}
-	return p.connection.Stat()
-}
-
 func (p *Pop3) Retrieve(id int) (*Mail, error) {
-	if err := p.connectionAlive(); err != nil {
-		return nil, err
-	}
-
-	message, err := p.connection.Retr(id)
+	message, err := p.Retr(id)
 	if err != nil {
 		return nil, err
 	}

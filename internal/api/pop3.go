@@ -9,37 +9,6 @@ import (
 	"strings"
 )
 
-func HandlerPopAuth(app *API) fiber.Handler {
-
-	type request struct {
-		User     string `json:"user"`
-		Password string `json:"password"`
-	}
-
-	return func(ctx *fiber.Ctx) error {
-
-		var req request
-
-		if err := ctx.BodyParser(&req); err != nil {
-			return internal("Internal server error: cannot parse json")
-		}
-
-		if err := app.pop.Auth(req.User, req.Password); err != nil {
-			//if 0 == strings.Compare(err.Error(), "failed at USER command: something went wrong: -ERR Unknown command: USER") {
-			//	return bad("Already authenticated")
-			//}
-			//
-			//if strings.Contains(err.Error(), "-ERR Invalid login or password") {
-			//	return forbidden("Invalid credentials")
-			//}
-
-			return internal(fmt.Sprintf("Cannot auth: %s", err))
-		}
-
-		return respond(ctx, "successfully auth")
-	}
-}
-
 func HandlerPopList(app *API) fiber.Handler {
 
 	type response struct {
@@ -50,15 +19,21 @@ func HandlerPopList(app *API) fiber.Handler {
 
 		var res response
 
-		listedMessages, err := app.pop.ListAll()
+		if ctx.Locals("connection") == nil {
+			return Internal(fmt.Sprintf("pop.ListAll: where connection"))
+		}
+
+		connection := ctx.Locals("connection").(*lib.Pop3)
+
+		listedMessages, err := connection.ListAll()
 		if err != nil {
-			return internal(fmt.Sprintf("pop.ListAll: %s", err))
+			return Internal(fmt.Sprintf("pop.ListAll: %s", err))
 		}
 
 		for _, listedMessage := range listedMessages {
-			msg, err := app.pop.Retrieve(listedMessage.ID)
+			msg, err := connection.Retrieve(listedMessage.ID)
 			if err != nil {
-				return internal(fmt.Sprintf("pop.Retr: %s", err))
+				return Internal(fmt.Sprintf("pop.Retr: %s", err))
 			}
 
 			msg.Meta = listedMessage
@@ -71,7 +46,7 @@ func HandlerPopList(app *API) fiber.Handler {
 			res.Messages = append(res.Messages, msg)
 		}
 
-		return respond(ctx, res)
+		return Respond(ctx, res)
 	}
 }
 
@@ -89,27 +64,33 @@ func HandlerPopRetrieve(app *API) fiber.Handler {
 		id, err := strconv.Atoi(idParam)
 		if err != nil {
 			if errors.Is(err, strconv.ErrSyntax) {
-				return bad(fmt.Sprintf("mail id must be positive integer"))
+				return Bad(fmt.Sprintf("mail id must be positive integer"))
 			}
-			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+			return Internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
 		}
 
-		msg, err := app.pop.Retrieve(id)
+		if ctx.Locals("connection") == nil {
+			return Internal(fmt.Sprintf("pop.ListAll: where connection"))
+		}
+
+		connection := ctx.Locals("connection").(*lib.Pop3)
+
+		msg, err := connection.Retrieve(id)
 		if err != nil {
 			if errors.Is(err, lib.ErrPop3Disconnected) {
-				return forbidden(err.Error())
+				return Forbidden(err.Error())
 			}
 
 			if strings.Contains(err.Error(), "There's no message") {
-				return bad("unknown message")
+				return Bad("unknown message")
 			}
 
-			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+			return Internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
 		}
 
 		res.Message = msg
 
-		return respond(ctx, res)
+		return Respond(ctx, res)
 	}
 }
 
@@ -123,23 +104,27 @@ func HandlerPopStat(app *API) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 
 		var res response
+		if ctx.Locals("connection") == nil {
+			return Internal(fmt.Sprintf("pop.ListAll: where connection"))
+		}
 
-		count, size, err := app.pop.Stat()
+		connection := ctx.Locals("connection").(*lib.Pop3)
+		count, size, err := connection.Stat()
 		if err != nil {
 			if errors.Is(err, lib.ErrPop3Disconnected) {
-				return forbidden(err.Error())
+				return Forbidden(err.Error())
 			}
 
 			if strings.Contains(err.Error(), "There's no message") {
-				return bad("unknown message")
+				return Bad("unknown message")
 			}
 
-			return internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
+			return Internal(fmt.Sprintf("%s [@HandlerPopRetrieve]", err.Error()))
 		}
 
 		res.Count = count
 		res.Size = size
 
-		return respond(ctx, res)
+		return Respond(ctx, res)
 	}
 }

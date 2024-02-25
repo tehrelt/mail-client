@@ -37,20 +37,17 @@ func LoginAuth(username, password string) smtp.Auth {
 }
 
 type Smtp struct {
-	config *config.SmtpConfig
-	user   *dto.User
+	*gomail.Dialer
 }
 
-func NewSmtp(cfg *config.SmtpConfig) *Smtp {
-	return &Smtp{
-		config: cfg,
-	}
+func NewSmtp(dialer *gomail.Dialer) *Smtp {
+	return &Smtp{dialer}
 }
 
-func (s *Smtp) Auth(user *dto.User) error {
+func SmtpAuth(cfg *config.SmtpConfig, user *dto.User) (*Smtp, error) {
 	dialer := gomail.NewDialer(
-		s.config.Host,
-		s.config.Port,
+		cfg.Host,
+		cfg.Port,
 		user.User,
 		user.Pass,
 	)
@@ -58,36 +55,22 @@ func (s *Smtp) Auth(user *dto.User) error {
 
 	sender, err := dialer.Dial()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer sender.Close()
+	sender.Close()
 
-	s.user = user
-
-	return nil
+	return NewSmtp(dialer), nil
 }
 
-func (s *Smtp) Send(message *dto.Message) error {
-
-	if s.user == nil {
-		return ErrSmtpForbidden
-	}
-
-	dialer := gomail.NewDialer(
-		s.config.Host,
-		s.config.Port,
-		s.user.User,
-		s.user.Pass,
-	)
-	dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+func (s *Smtp) SendMessage(message *dto.Message) error {
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", s.user.User)
+	m.SetHeader("From", message.From)
 	m.SetHeader("To", strings.Join(message.To, ","))
 	m.SetHeader("Subject", message.Subject)
 	m.AddAlternative("text/plain", message.Body)
 
-	if err := dialer.DialAndSend(m); err != nil {
+	if err := s.DialAndSend(m); err != nil {
 		return err
 	}
 

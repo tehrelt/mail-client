@@ -1,34 +1,44 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"mail-client/internal/config"
-	"mail-client/internal/lib"
+	"mail-client/internal/dto"
 )
 
 type API struct {
-	app *fiber.App
-
-	smtp *lib.Smtp
-	pop  *lib.Pop3
-
-	config *config.AppConfig
+	app    *fiber.App
+	User   *dto.User
+	Config *config.AppConfig
 }
 
 func Start(cfg *config.AppConfig) error {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		AppName:       "mail-client-api",
+		CaseSensitive: true,
+		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
 
-	pop3 := lib.NewPop(cfg.Pop3)
-	smtp := lib.NewSmtp(cfg.Smtp)
+			var e *fiber.Error
+			if errors.As(err, &e) {
+				code = e.Code
+			}
+
+			err = ctx.Status(code).JSON(fiber.Map{
+				"message": e.Message,
+			})
+
+			return nil
+		},
+	})
 
 	api := &API{
 		app:    app,
-		smtp:   smtp,
-		pop:    pop3,
-		config: cfg,
+		Config: cfg,
 	}
 
 	api.app.Use(cors.New(cors.Config{
@@ -43,19 +53,16 @@ func Start(cfg *config.AppConfig) error {
 }
 
 func (api *API) configure() {
-	api.app.Get("/ping", func(ctx *fiber.Ctx) error {
-		return ctx.JSON(&fiber.Map{
-			"message": "pong",
-		})
-	})
 
-	smtp := api.app.Group("/smtp")
-	smtp.Post("/auth", HandlerSmtpAuth(api))
-	smtp.Post("/send", HandlerSmtpSend(api))
+	api.app.Get("/auth", HandlerAuthAlive(api))
+	api.app.Post("/auth", HandlerAuth(api))
+	api.app.Post("/logout", HandlerLogout(api))
 
-	pop3 := api.app.Group("/pop3")
-	pop3.Post("/auth", HandlerPopAuth(api))
+	pop3 := api.app.Group("/pop3", CheckPop3Auth(api))
 	pop3.Get("/list", HandlerPopList(api))
 	pop3.Get("/list/:id", HandlerPopRetrieve(api))
 	pop3.Get("/stat", HandlerPopStat(api))
+
+	smtp := api.app.Group("/smtp", CheckSmtpAuth(api))
+	smtp.Post("/send", HandlerSmtpSend(api))
 }
