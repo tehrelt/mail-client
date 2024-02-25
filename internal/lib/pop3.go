@@ -8,6 +8,7 @@ import (
 	"github.com/knadh/go-pop3"
 	"io"
 	"mail-client/internal/config"
+	"mail-client/internal/dto"
 	"strings"
 	"time"
 )
@@ -18,58 +19,52 @@ var (
 )
 
 type Pop3 struct {
-	client     *pop3.Client
-	connection *pop3.Conn
+	*pop3.Conn
+}
+
+type part struct {
+	ContentType string `json:"contentType"`
+	Charset     string `json:"charset"`
+	Body        string `json:"body"`
 }
 
 type Mail struct {
 	From    string         `json:"from"`
 	To      string         `json:"to"`
 	Subject string         `json:"subject"`
-	Body    string         `json:"body"`
+	Body    []part         `json:"body"`
 	Date    time.Time      `json:"date"`
 	Meta    pop3.MessageID `json:"meta"`
 }
 
-func NewPop(cfg *config.Pop3Config) *Pop3 {
-	return &Pop3{
-		client: pop3.New(pop3.Opt{
-			Host:       cfg.Host,
-			Port:       cfg.Port,
-			TLSEnabled: false,
-		}),
-	}
+func NewPop(connection *pop3.Conn) *Pop3 {
+	return &Pop3{connection}
 }
 
-func (p *Pop3) connectionAlive() error {
-	if p.connection == nil {
-		return ErrPop3Disconnected
-	}
-	return nil
-}
+func Pop3Auth(config *config.Pop3Config, user *dto.User) (*Pop3, error) {
+	client := pop3.New(pop3.Opt{
+		Host:          config.Host,
+		Port:          config.Port,
+		TLSEnabled:    false,
+		TLSSkipVerify: false,
+	})
 
-func (p *Pop3) Auth(user, pass string) error {
-	conn, err := p.client.NewConn()
+	conn, err := client.NewConn()
 	if err != nil {
-		return err
-	}
-
-	if err := conn.Auth(user, pass); err != nil {
-		conn.Quit()
-		return err
-	}
-
-	p.connection = conn
-
-	return nil
-}
-
-func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
-	if err := p.connectionAlive(); err != nil {
 		return nil, err
 	}
 
-	msgs, err := p.connection.List(0)
+	if err := conn.Auth(user.User, user.Pass); err != nil {
+		conn.Quit()
+		return nil, err
+	}
+
+	return NewPop(conn), nil
+}
+
+func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
+
+	msgs, err := p.List(0)
 	if err != nil {
 		return nil, err
 	}
@@ -77,19 +72,8 @@ func (p *Pop3) ListAll() ([]pop3.MessageID, error) {
 	return msgs, nil
 }
 
-func (p *Pop3) Stat() (int, int, error) {
-	if err := p.connectionAlive(); err != nil {
-		return 0, 0, err
-	}
-	return p.connection.Stat()
-}
-
 func (p *Pop3) Retrieve(id int) (*Mail, error) {
-	if err := p.connectionAlive(); err != nil {
-		return nil, err
-	}
-
-	message, err := p.connection.Retr(id)
+	message, err := p.Retr(id)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +85,72 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 		log.Fatal(err)
 	}
 
+	//parsedEmail, err := mail.ReadMessage(reader)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//fmt.Printf("Subject: %s\n", parsedEmail.Header.Get("Subject"))
+	//
+	//mediaType, params, err := mime.ParseMediaType(parsedEmail.Header.Get("Content-Type"))
+	//if err != nil {
+	//	log.Fatalf("Error parsing media type: %v", err)
+	//}
+	//
+	//var parts []part
+	//
+	//if strings.HasPrefix(mediaType, "multipart/") {
+	//	mr := multipart.NewReader(parsedEmail.Body, params["boundary"])
+	//
+	//	for {
+	//		var p part
+	//		bodyPart, err := mr.NextPart()
+	//		if err == multipart.ErrMessageTooLarge {
+	//			log.Debug("Message is too large, skipping...")
+	//			break
+	//		}
+	//		if err != nil {
+	//			break
+	//		}
+	//
+	//		contentType := bodyPart.Header.Get("Content-Type")
+	//		p.Charset = bodyPart.Header.Get("charset");
+	//		p.ContentType = contentType
+	//
+	//		switch {
+	//		case strings.HasPrefix(contentType, "text/plain"):
+	//			// Text/plain bodyPart
+	//			body, err := io.ReadAll(bodyPart)
+	//			if err != nil {
+	//				log.Fatalf("Error reading text/plain bodyPart: %v", err)
+	//			}
+	//
+	//			//fmt.Printf("Text/Plain Body: %s\n", string(body))
+	//
+	//		case strings.HasPrefix(contentType, "text/html"):
+	//			// Text/html bodyPart
+	//			body, err := io.ReadAll(bodyPart)
+	//			if err != nil {
+	//				log.Fatalf("Error reading text/html bodyPart: %v", err)
+	//			}
+	//			fmt.Printf("Text/HTML Body: %s\n", string(body))
+	//
+	//		default:
+	//			// Other parts (attachments etc.)
+	//			fileName := bodyPart.FileName()
+	//			if fileName != "" {
+	//				// Attachment found
+	//				data, err := io.ReadAll(bodyPart)
+	//				if err != nil {
+	//					log.Fatalf("Error reading attachment: %v", err)
+	//				}
+	//				// Process attachment data here, e.g., save to file
+	//				fmt.Printf("Attachment found: %s\n", fileName)
+	//			}
+	//		}
+	//	}
+	//}
+
 	f := message.Header.Get("from")
 	from, err := base64.StdEncoding.DecodeString(strings.Split(strings.Split(f, "=?UTF-8?B?")[1], "?=")[0])
 	if err != nil {
@@ -108,9 +158,7 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 	}
 
 	sender := fmt.Sprintf("%s %s", string(from), strings.Split(f, " ")[1])
-
 	subj := message.Header.Get("subject")
-
 	subjj := strings.Split(subj, "UTF-8?B?")
 
 	var subject []string
@@ -130,21 +178,51 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 		return nil, err
 	}
 
-	elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
-	encodedParts := strings.Split(elems, "\r\n")[5:]
+	//log.Debug(strings.Join(subject, ""))
 
-	encoded := strings.Join(encodedParts, "")
+	var parts []part
+	if strings.Contains(buf.String()[:10], "ALT") {
+		key := buf.String()[:55]
 
-	content, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, err
+		elems := strings.Split(buf.String(), key)
+		for i, e := range elems {
+			if i == 0 {
+				continue
+			}
+			//log.Debugf("%d:%s\n", i, e)
+
+			var p part
+			p.ContentType = strings.Split(strings.Split(e, "Content-Type: ")[1], ";")[0]
+			p.Charset = strings.Split(strings.Split(e, "charset=")[1], "\r\n")[0]
+			p.Body = strings.Join(
+				strings.Split(
+					strings.Split(
+						strings.Split(e, "\r\n\r\n")[1], "\r\n\r\n")[0],
+					"\r\n"),
+				"")
+
+			content, err := base64.StdEncoding.DecodeString(p.Body)
+			if err != nil {
+				return nil, err
+			}
+
+			p.Body = string(content)
+
+			parts = append(parts, p)
+		}
+	} else {
+		parts = append(parts, part{
+			ContentType: "unknown",
+			Charset:     "utf-8",
+			Body:        buf.String(),
+		})
 	}
 
 	return &Mail{
 		From:    sender,
 		To:      message.Header.Get("to"),
 		Subject: strings.Join(subject, ""),
-		Body:    string(content),
+		Body:    parts,
 		Date:    t,
 	}, nil
 }
