@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"mail-client/internal/lib"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,7 @@ func HandlerPopList(app *API) fiber.Handler {
 		}
 
 		connection := ctx.Locals("connection").(*lib.Pop3)
+		defer connection.Quit()
 
 		listedMessages, err := connection.ListAll()
 		if err != nil {
@@ -38,13 +40,14 @@ func HandlerPopList(app *API) fiber.Handler {
 
 			msg.Meta = listedMessage
 
-			if len(msg.Body) > 128 {
-				msg.Body = msg.Body[:128]
-				msg.Body += "..."
-			}
+			//if len(msg.Body) > 128 {
+			//	msg.Body = msg.Body[:128]
+			//}
 
 			res.Messages = append(res.Messages, msg)
 		}
+
+		slices.Reverse(res.Messages)
 
 		return Respond(ctx, res)
 	}
@@ -74,6 +77,7 @@ func HandlerPopRetrieve(app *API) fiber.Handler {
 		}
 
 		connection := ctx.Locals("connection").(*lib.Pop3)
+		defer connection.Quit()
 
 		msg, err := connection.Retrieve(id)
 		if err != nil {
@@ -109,6 +113,8 @@ func HandlerPopStat(app *API) fiber.Handler {
 		}
 
 		connection := ctx.Locals("connection").(*lib.Pop3)
+		defer connection.Quit()
+
 		count, size, err := connection.Stat()
 		if err != nil {
 			if errors.Is(err, lib.ErrPop3Disconnected) {

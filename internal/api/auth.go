@@ -10,7 +10,7 @@ func HandlerAuth(api *API) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 
 		if api.User != nil {
-			return Bad("Already authenticated")
+			return ctx.SendStatus(204)
 		}
 
 		var req dto.User
@@ -47,7 +47,9 @@ func HandlerAuthAlive(api *API) fiber.Handler {
 
 		defer connection.Quit()
 
-		return ctx.SendStatus(200)
+		return Respond(ctx, fiber.Map{
+			"user": user.User,
+		})
 	}
 }
 

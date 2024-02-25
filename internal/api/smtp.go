@@ -22,7 +22,6 @@ func HandlerSmtpSend(app *API) fiber.Handler {
 		}
 
 		connection := ctx.Locals("connection").(*lib.Smtp)
-
 		if err := connection.SendMessage(&req); err != nil {
 			return Internal(fmt.Sprintf("smtp.Send: %s", err.Error()))
 		}

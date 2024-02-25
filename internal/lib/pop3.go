@@ -22,11 +22,17 @@ type Pop3 struct {
 	*pop3.Conn
 }
 
+type part struct {
+	ContentType string `json:"contentType"`
+	Charset     string `json:"charset"`
+	Body        string `json:"body"`
+}
+
 type Mail struct {
 	From    string         `json:"from"`
 	To      string         `json:"to"`
 	Subject string         `json:"subject"`
-	Body    string         `json:"body"`
+	Body    []part         `json:"body"`
 	Date    time.Time      `json:"date"`
 	Meta    pop3.MessageID `json:"meta"`
 }
@@ -86,9 +92,7 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 	}
 
 	sender := fmt.Sprintf("%s %s", string(from), strings.Split(f, " ")[1])
-
 	subj := message.Header.Get("subject")
-
 	subjj := strings.Split(subj, "UTF-8?B?")
 
 	var subject []string
@@ -108,21 +112,68 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 		return nil, err
 	}
 
-	elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
-	encodedParts := strings.Split(elems, "\r\n")[5:]
+	log.Debug(strings.Join(subject, ""))
 
-	encoded := strings.Join(encodedParts, "")
+	var parts []part
+	if strings.Contains(buf.String()[:10], "ALT") {
+		key := buf.String()[:55]
 
-	content, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, err
+		elems := strings.Split(buf.String(), key)
+		for i, e := range elems {
+			if i == 0 {
+				continue
+			}
+			//log.Debugf("%d:%s\n", i, e)
+
+			var p part
+			p.ContentType = strings.Split(strings.Split(e, "Content-Type: ")[1], ";")[0]
+			p.Charset = strings.Split(strings.Split(e, "charset=")[1], "\r\n")[0]
+			p.Body = strings.Join(
+				strings.Split(
+					strings.Split(
+						strings.Split(e, "\r\n\r\n")[1], "\r\n\r\n")[0],
+					"\r\n"),
+				"")
+
+			content, err := base64.StdEncoding.DecodeString(p.Body)
+			if err != nil {
+				return nil, err
+			}
+
+			p.Body = string(content)
+
+			parts = append(parts, p)
+		}
+	} else {
+
 	}
+
+	//log.Debug(buf.String())
+
+	//elems := strings.Split(buf.String(), "\r\n\r\n----ALT--")
+	//for _, elem := range elems {
+	//	ctype := strings.Split(strings.Split(elem, "Content-Type: ")[1], ";")[0]
+	//	ctype = strings.Replace(ctype, "/", "_", -1)
+	//	if err := os.WriteFile(fmt.Sprintf("%s_%s.txt", strings.Join(subject, ""), ctype), []byte(elem), 777); err != nil {
+	//		return nil, err
+	//	}
+	//}
+
+	//elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
+	//encodedParts := strings.Split(elems, "\r\n")[5:]
+	//
+	//encoded := strings.Join(encodedParts, "")
+	//
+	//content, err := base64.StdEncoding.DecodeString(encoded)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return &Mail{
 		From:    sender,
 		To:      message.Header.Get("to"),
 		Subject: strings.Join(subject, ""),
-		Body:    string(content),
+		Body:    parts,
 		Date:    t,
 	}, nil
 }
