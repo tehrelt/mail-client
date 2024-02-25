@@ -85,6 +85,72 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 		log.Fatal(err)
 	}
 
+	//parsedEmail, err := mail.ReadMessage(reader)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//fmt.Printf("Subject: %s\n", parsedEmail.Header.Get("Subject"))
+	//
+	//mediaType, params, err := mime.ParseMediaType(parsedEmail.Header.Get("Content-Type"))
+	//if err != nil {
+	//	log.Fatalf("Error parsing media type: %v", err)
+	//}
+	//
+	//var parts []part
+	//
+	//if strings.HasPrefix(mediaType, "multipart/") {
+	//	mr := multipart.NewReader(parsedEmail.Body, params["boundary"])
+	//
+	//	for {
+	//		var p part
+	//		bodyPart, err := mr.NextPart()
+	//		if err == multipart.ErrMessageTooLarge {
+	//			log.Debug("Message is too large, skipping...")
+	//			break
+	//		}
+	//		if err != nil {
+	//			break
+	//		}
+	//
+	//		contentType := bodyPart.Header.Get("Content-Type")
+	//		p.Charset = bodyPart.Header.Get("charset");
+	//		p.ContentType = contentType
+	//
+	//		switch {
+	//		case strings.HasPrefix(contentType, "text/plain"):
+	//			// Text/plain bodyPart
+	//			body, err := io.ReadAll(bodyPart)
+	//			if err != nil {
+	//				log.Fatalf("Error reading text/plain bodyPart: %v", err)
+	//			}
+	//
+	//			//fmt.Printf("Text/Plain Body: %s\n", string(body))
+	//
+	//		case strings.HasPrefix(contentType, "text/html"):
+	//			// Text/html bodyPart
+	//			body, err := io.ReadAll(bodyPart)
+	//			if err != nil {
+	//				log.Fatalf("Error reading text/html bodyPart: %v", err)
+	//			}
+	//			fmt.Printf("Text/HTML Body: %s\n", string(body))
+	//
+	//		default:
+	//			// Other parts (attachments etc.)
+	//			fileName := bodyPart.FileName()
+	//			if fileName != "" {
+	//				// Attachment found
+	//				data, err := io.ReadAll(bodyPart)
+	//				if err != nil {
+	//					log.Fatalf("Error reading attachment: %v", err)
+	//				}
+	//				// Process attachment data here, e.g., save to file
+	//				fmt.Printf("Attachment found: %s\n", fileName)
+	//			}
+	//		}
+	//	}
+	//}
+
 	f := message.Header.Get("from")
 	from, err := base64.StdEncoding.DecodeString(strings.Split(strings.Split(f, "=?UTF-8?B?")[1], "?=")[0])
 	if err != nil {
@@ -112,7 +178,7 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 		return nil, err
 	}
 
-	log.Debug(strings.Join(subject, ""))
+	//log.Debug(strings.Join(subject, ""))
 
 	var parts []part
 	if strings.Contains(buf.String()[:10], "ALT") {
@@ -145,29 +211,12 @@ func (p *Pop3) Retrieve(id int) (*Mail, error) {
 			parts = append(parts, p)
 		}
 	} else {
-
+		parts = append(parts, part{
+			ContentType: "unknown",
+			Charset:     "utf-8",
+			Body:        buf.String(),
+		})
 	}
-
-	//log.Debug(buf.String())
-
-	//elems := strings.Split(buf.String(), "\r\n\r\n----ALT--")
-	//for _, elem := range elems {
-	//	ctype := strings.Split(strings.Split(elem, "Content-Type: ")[1], ";")[0]
-	//	ctype = strings.Replace(ctype, "/", "_", -1)
-	//	if err := os.WriteFile(fmt.Sprintf("%s_%s.txt", strings.Join(subject, ""), ctype), []byte(elem), 777); err != nil {
-	//		return nil, err
-	//	}
-	//}
-
-	//elems := strings.Split(buf.String(), "\r\n\r\n----ALT")[0]
-	//encodedParts := strings.Split(elems, "\r\n")[5:]
-	//
-	//encoded := strings.Join(encodedParts, "")
-	//
-	//content, err := base64.StdEncoding.DecodeString(encoded)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	return &Mail{
 		From:    sender,
