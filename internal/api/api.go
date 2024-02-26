@@ -34,6 +34,7 @@ func Start(cfg *config.AppConfig) error {
 
 			return nil
 		},
+		BodyLimit: 10 << 20,
 	})
 
 	api := &API{
@@ -42,9 +43,10 @@ func Start(cfg *config.AppConfig) error {
 	}
 
 	api.app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*",
-		AllowCredentials: false,
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept",
 	}))
+
 	api.app.Use(logger.New())
 
 	api.configure()
