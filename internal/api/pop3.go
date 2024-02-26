@@ -79,7 +79,7 @@ func HandlerPopRetrieve(app *API) fiber.Handler {
 		connection := ctx.Locals("connection").(*lib.Pop3)
 		defer connection.Quit()
 
-		msg, err := connection.Retrieve(id)
+		msg, err := connection.RetrWithAttachments(id)
 		if err != nil {
 			if errors.Is(err, lib.ErrPop3Disconnected) {
 				return Forbidden(err.Error())
